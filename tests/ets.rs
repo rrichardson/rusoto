@@ -1,4 +1,4 @@
-#![cfg(all(feature = "ets", feature = "s3"))]
+#![cfg(all(feature = "elastictranscoder", feature = "s3"))]
 
 extern crate env_logger;
 #[macro_use] extern crate log;
@@ -10,29 +10,31 @@ use std::ops::{Deref, DerefMut};
 
 use rand::Rng;
 use rusoto::{ChainProvider, ProvideAwsCredentials, Region};
-use rusoto::ets::EtsClient;
+use rusoto::elastictranscoder::EtsClient;
 use rusoto::s3::{BucketName, S3Helper};
+use rusoto::request::DispatchSignedRequest;
 
 const AWS_ETS_WEB_PRESET_ID: &'static str = "1351620000001-100070";
 const AWS_ETS_WEB_PRESET_NAME: &'static str = "System preset: Web";
 const AWS_REGION: Region = Region::UsEast1;
 const AWS_SERVICE_RANDOM_SUFFIX_LENGTH: usize = 20;
 
-struct TestEtsClient<P>
-    where P: ProvideAwsCredentials
+struct TestEtsClient<P, D>
+    where P: ProvideAwsCredentials, D: DispatchSignedRequest
 {
     credentials_provider: P,
+    dispatcher: D,
     region: Region,
 
-    client: EtsClient<P>,
+    client: EtsClient<P, Region>,
 
     s3_helper: Option<S3Helper<P>>,
     input_bucket: Option<BucketName>,
     output_bucket: Option<BucketName>,
 }
 
-impl<P> TestEtsClient<P>
-    where P: ProvideAwsCredentials + Clone
+impl<P, D> TestEtsClient<P>
+    where P: ProvideAwsCredentials, D: DispatchSignedRequest + Clone
 {
     /// Creates a new `EtsClient` for a test.
     fn new(credentials_provider: P, region: Region) -> Self {
@@ -73,7 +75,7 @@ impl<P> TestEtsClient<P>
 impl<P> Deref for TestEtsClient<P>
     where P: ProvideAwsCredentials
 {
-    type Target = EtsClient<P>;
+    type Target = EtsClient<P, Region>;
     fn deref(&self) -> &Self::Target {
         &self.client
     }
@@ -82,7 +84,7 @@ impl<P> Deref for TestEtsClient<P>
 impl<P> DerefMut for TestEtsClient<P>
     where P: ProvideAwsCredentials
 {
-    fn deref_mut<'a>(&'a mut self) -> &'a mut EtsClient<P> {
+    fn deref_mut<'a>(&'a mut self) -> &'a mut EtsClient<P, Region> {
         &mut self.client
     }
 }
@@ -138,7 +140,7 @@ fn generate_unique_name(prefix: &str) -> String {
 #[test]
 #[should_panic(expected = "arn cannot be null")]
 fn create_pipeline_without_arn() {
-    use rusoto::ets::CreatePipelineRequest;
+    use rusoto::elastictranscoder::CreatePipelineRequest;
 
     initialize();
 
@@ -159,7 +161,7 @@ fn create_pipeline_without_arn() {
 
 #[test]
 fn create_preset() {
-    use rusoto::ets::{
+    use rusoto::elastictranscoder::{
         AudioCodecOptions,
         AudioParameters,
         CreatePresetRequest,
@@ -216,7 +218,7 @@ fn create_preset() {
 
 #[test]
 fn delete_preset() {
-    use rusoto::ets::{
+    use rusoto::elastictranscoder::{
         AudioCodecOptions,
         AudioParameters,
         CreatePresetRequest,
@@ -259,7 +261,7 @@ fn delete_preset() {
 
 #[test]
 fn list_jobs_by_status() {
-    use rusoto::ets::ListJobsByStatusRequest;
+    use rusoto::elastictranscoder::ListJobsByStatusRequest;
 
     initialize();
 
@@ -281,7 +283,7 @@ fn list_jobs_by_status() {
 
 #[test]
 fn list_pipelines() {
-    use rusoto::ets::ListPipelinesRequest;
+    use rusoto::elastictranscoder::ListPipelinesRequest;
 
     initialize();
 
@@ -299,7 +301,7 @@ fn list_pipelines() {
 
 #[test]
 fn list_presets() {
-    use rusoto::ets::ListPresetsRequest;
+    use rusoto::elastictranscoder::ListPresetsRequest;
 
     initialize();
 
@@ -334,7 +336,7 @@ fn list_presets() {
 
 #[test]
 fn read_preset() {
-    use rusoto::ets::ReadPresetRequest;
+    use rusoto::elastictranscoder::ReadPresetRequest;
 
     initialize();
 
